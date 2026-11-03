@@ -133,4 +133,14 @@ sync_lower32:
 irq_lower32:
 fiq_lower32:
 serr_lower32:
-    b .
+    SAVE_GPRS
+
+    mrs x0, esr_el1
+    mrs x1, elr_el1
+    mrs x2, far_el1
+
+    bl default_handler
+
+    RESTORE_GPRS
+
+    eret
