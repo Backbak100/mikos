@@ -105,7 +105,7 @@ void timer_init(void) {
 
 //frq = 62500000
 
-int tick_seconds(void) {
+unsigned long tick_seconds(void) {
     uint64_t x1 = get_timer_time();
     int x2;
     static int i = 0;
@@ -126,15 +126,8 @@ void kmain(void) {
 
     __asm__ volatile("svc #0");
 
-    print("\ncontinuation after the svc (exception)\nctrl A -> X to exit\n");
+    print("\ncontinuation after the svc (exception)\nctrl A -> X to exit\n\nClock counter...\n");
 
-    timer_init();
-
-    print("\ntimer init completed\ntimer time: ");
-
-    print_number(get_timer_time());
-
-    print("\nget timer time completed\n");
 
     while (1) {
         print_number(tick_seconds());
