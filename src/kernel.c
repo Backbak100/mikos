@@ -107,8 +107,8 @@ void timer_init(void) {
 
 unsigned long tick_seconds(void) {
     uint64_t x1 = get_timer_time();
-    int x2;
-    static int i = 0;
+    unsigned long x2;
+    static unsigned long i = 0;
 
     while ((x2 = get_timer_time()) - x1 != get_timer_frequency());
 
