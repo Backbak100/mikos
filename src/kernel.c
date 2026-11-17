@@ -1,6 +1,14 @@
 #include <stdint.h>
+#include <stddef.h>
+#define PAGE_SIZE 4096
+#define PAGE_SHIFT 12
+
+#define TOTAL_PAGES 8
+#define BITMAP_SIZE ((TOTAL_PAGES + 7) / 8)
 
 volatile uint8_t *uart = (uint8_t *) 0x09000000; //PL011 uart memory address mapped by qemu
+
+extern char kernel_end[];
 
 extern unsigned long get_timer_frequency(void);
 extern unsigned long get_timer_time(void);
@@ -52,6 +60,10 @@ void print_number(uint64_t value) {
     }
 }
 
+void print_address(void *address) {
+    print_hex((uintptr_t)address);
+}
+
 /*
 ----------
 EXCEPTIONS
@@ -84,6 +96,44 @@ void default_handler(uint64_t esr, uint64_t elr, uint64_t far) {
 
     print("FAR_EL1: ");
     print_hex(far);
+}
+
+/*
+-----------------------
+PAGE ALLOCATOR FUNCTIONS
+-----------------------
+*/
+
+uint8_t page_bitmap[BITMAP_SIZE];
+
+int m_palloc(uint64_t i)  {
+    if (i >= TOTAL_PAGES)
+        return 0;
+    
+    page_bitmap[i / 8] |= (1U << (i % 8));
+    return 1;
+
+}
+
+int palloc_done(uint64_t i) {
+    return (page_bitmap[i / 8] >> (i % 8)) & 1;
+}
+
+void *palloc(void) {
+
+    for (uint64_t i = 0; i < TOTAL_PAGES; i++) {
+        if (!palloc_done(i)) {
+            m_palloc(i);
+
+            print("\n\nmarked in bitmap!\n\n");
+
+            uintptr_t free_start = (((uintptr_t)(kernel_end)) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
+            return (void *)(free_start + i*PAGE_SIZE);
+        }
+    }
+
+    return NULL;
 }
 
 /*
@@ -122,17 +172,33 @@ MAIN
 */
 
 void kmain(void) {
-    print("hello world\n");
+   print("hello world\n\n");
 
     __asm__ volatile("svc #0");
 
-    print("\ncontinuation after the svc (exception)\nctrl A -> X to exit\n\nClock counter...\n");
-
-
-    while (1) {
-        print_number(tick_seconds());
-        print("\n");
+    
+    print("\ncontinuation after the svc (exception)\n");
+    
+    print("\npalloc() address: ");
+    print_address(palloc());
+    print("\nbitmap: ");
+    for (int i = 0; i<TOTAL_PAGES; i++){
+        print_number(page_bitmap[i]);
+        print(" ");
     }
+    
+    print("\n");
+
+    print("Clock counter...\n");
+    while (1) {
+        int x = tick_seconds();
+        print_number(x);
+        print("\n");
+        if (x >= 5)
+            break;
+    }
+
+    print("wfi... ctrl A -> X to exit\n");
     
     while (1)
         __asm__ volatile("wfi");

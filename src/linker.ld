@@ -8,4 +8,5 @@ SECTIONS {
     . = ALIGN(16); /* two times pointer size */
     . += 0x1000; /* reserves 4kB for the stack */
     stack_top = .;
+    kernel_end = .;
 }

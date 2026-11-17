@@ -1,7 +1,7 @@
 .global _start
 _start:
-    ldr x30, =stack_top
-    mov sp, x30
+    ldr x0, =stack_top
+    mov sp, x0
 
     //install the exception vector table
     ldr x0, =vector_table
