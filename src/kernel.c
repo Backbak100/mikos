@@ -106,29 +106,49 @@ PAGE ALLOCATOR FUNCTIONS
 
 uint8_t page_bitmap[BITMAP_SIZE];
 
-int m_palloc(uint64_t i)  {
+int mark_page_taken(uint64_t i)  {
     if (i >= TOTAL_PAGES)
         return 0;
     
-    page_bitmap[i / 8] |= (1U << (i % 8));
+    page_bitmap[i] |= 1U;
+
     return 1;
 
 }
 
+int mark_page_free(uint64_t i) {
+    if (i >= TOTAL_PAGES)
+        return 0;
+    
+    //page_bitmap[i / 8] &= ~(1U << (i % 8));
+
+    page_bitmap[i] ^= 1U;
+
+    return 1;
+}
+
 int palloc_done(uint64_t i) {
-    return (page_bitmap[i / 8] >> (i % 8)) & 1;
+    return (page_bitmap[i/8] >> (i % 8)) & 1;
+}
+
+void free_page(void *adr) {
+    uintptr_t mem = (uintptr_t) adr;
+    uintptr_t free_start = (((uintptr_t)(kernel_end)) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+
+    uint64_t i = (mem - free_start) / PAGE_SIZE;
+
+    mark_page_free(i); 
+
 }
 
 void *palloc(void) {
 
     for (uint64_t i = 0; i < TOTAL_PAGES; i++) {
         if (!palloc_done(i)) {
-            m_palloc(i);
 
-            print("\n\nmarked in bitmap!\n\n");
-
+            mark_page_taken(i);
             uintptr_t free_start = (((uintptr_t)(kernel_end)) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
-
+            
             return (void *)(free_start + i*PAGE_SIZE);
         }
     }
@@ -178,16 +198,47 @@ void kmain(void) {
 
     
     print("\ncontinuation after the svc (exception)\n");
+
+
     
     print("\npalloc() address: ");
-    print_address(palloc());
-    print("\nbitmap: ");
+    void *adr = palloc();
+    print_address(adr);
+    print("bitmap: ");
+    for (int i = 0; i<TOTAL_PAGES; i++){
+        print_number(page_bitmap[i]);
+        print(" ");
+    }
+
+    print("\n\nANOTHER PALLOC()\n");
+
+    print("\npalloc() address: ");
+    void *adr2 = palloc();
+    print_address(adr2);
+    print("bitmap: ");
     for (int i = 0; i<TOTAL_PAGES; i++){
         print_number(page_bitmap[i]);
         print(" ");
     }
     
     print("\n");
+
+    print("\nFreeing page\n");
+    free_page(adr);
+    print("bitmap: ");
+    for (int i = 0; i<TOTAL_PAGES; i++){
+        print_number(page_bitmap[i]);
+        print(" ");
+    }
+    print("\n\nFreeing page\n");
+    free_page(adr2);
+    print("bitmap: ");
+    for (int i = 0; i<TOTAL_PAGES; i++){
+        print_number(page_bitmap[i]);
+        print(" ");
+    }
+
+    print("\n\n");
 
     print("Clock counter...\n");
     while (1) {
